@@ -258,7 +258,8 @@ function Take-OwnershipOfFolders {
     foreach ($file in $filesToOwn) {
         if (Test-Path $file) {
             Write-Log "Taking ownership: $file"
-            & takeown.exe /F $file /D Y 2>&1 | Out-Null
+            # Remove /D Y as it requires /R and is not needed for single files
+            & takeown.exe /F $file 2>&1 | Out-Null
             & icacls.exe $file /grant "$($adminGroup.Value):(F)" /C 2>&1 | Out-Null
         }
     }

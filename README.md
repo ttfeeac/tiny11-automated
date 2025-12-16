@@ -133,8 +133,8 @@ Workflow: `.github/workflows/build-tiny11.yml`
 **Inputs:**
 - `windows_iso_url` - Windows 11 ISO download URL
 - `image_index` - Windows edition (1, 4, 6, 7)
-- `release_tag` - Tag name for release
-- `skip_cleanup` - Debug mode
+
+- `skip_cleanup` - Debug Modeug mode
 
 ### Build Tiny11 Core (Ultra-Minimal)
 Workflow: `.github/workflows/build-tiny11-core.yml`
@@ -142,8 +142,7 @@ Workflow: `.github/workflows/build-tiny11-core.yml`
 **Inputs:**
 - `windows_iso_url` - Windows 11 ISO download URL
 - `image_index` - Windows edition
-- `release_tag` - Tag name for release
-- `skip_cleanup` - Debug mode
+- `skip_cleanup` - Debug Mode
 - **`enable_dotnet35`** - Enable .NET 3.5 (Core only)
 
 ### Build Nano11 (EXTREME Minimal)
@@ -206,14 +205,13 @@ Workflow: `.github/workflows/build-nano11.yml`
 - **Windows 10/11** (PowerShell 5.1+)
 - **Administrator rights** (script will prompt if not)
 - **Disk space:**
-  - Standard: 25GB+ free
-  - Core: 40GB+ free
+  - Approximately 30GB+ free (just to be safe)
 - **Windows ADK** (for oscdimg.exe) or internet connection
 
 ### For Running Built ISOs
 - **Hardware:**
   - CPU: Any x64/ARM64 (requirements bypassed)
-  - RAM: 2GB+ (requirements bypassed)
+  - RAM: 1GB+ (memory requirements bypassed)
   - TPM: Not required (bypassed)
   - SecureBoot: Not required (bypassed)
 - **Virtualization:** VMware, VirtualBox, Hyper-V supported
@@ -240,17 +238,17 @@ Workflow: `.github/workflows/build-nano11.yml`
    - `4` = Windows 11 Education
    - `6` = Windows 11 Pro
    - `7` = Windows 11 Pro N
-4. **Set release tag** (e.g., `tiny11-25h2-v1.0`)
+4. **Release tag** (Automaticaly Generated)
 5. **Wait for completion** (30-80 minutes)
-6. **Download from Releases** or workflow artifacts
+6. **Download from [SourceForge](https://sourceforge.net/projects/tiny-11-releases/)** or workflow artifacts
 
 ## 📊 Build Times
 
 Typical build durations on GitHub Actions:
 - **Download:** 5-15 minutes (depends on ISO size)
-- **Standard Tiny11:** 45-80 minutes
+- **Standard Tiny11:** 45-80 minutes (More Apps/Bloats==longer to compress)
 - **Tiny11 Core:** 30-45 minutes (WinSxS optimization)
-- **Nano11:** 60-90 minutes (extensive removal + ESD compression)
+- **Nano11:** less than 40 minutes (extensive removal==less stuff to compress)
 
 ## 🐛 Troubleshooting
 
@@ -261,7 +259,7 @@ Typical build durations on GitHub Actions:
 ### "Insufficient disk space"
 - Free up disk space
 - Use `-SCRATCH` parameter for alternate drive
-- Core builds need 40GB+ due to WinSxS optimization
+- Core builds need 20GB+ due to WinSxS optimization (Just to be Safe)
 
 ### ISO creation fails
 - Check Windows ADK is installed

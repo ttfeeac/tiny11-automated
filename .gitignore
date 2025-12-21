@@ -1,3 +1,4 @@
 *.bak
 *.css
 CLAUDE.md
+*.env

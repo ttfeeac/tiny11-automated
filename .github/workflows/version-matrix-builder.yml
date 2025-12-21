@@ -164,46 +164,87 @@ jobs:
           git commit -m "🤖 Update tracked releases - $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "No changes to commit"
           git push origin main || echo "Push failed, continuing..."
       
+      - name: Send Discord Notification - New Releases
+        if: steps.check.outputs.has_new == 'true'
+        continue-on-error: true
+        run: |
+          echo "📢 Sending Discord notification..."
+          python3 scripts/discord_notify.py \
+            --webhook "${{ secrets.DISCORD_WEBHOOK_RELEASES }}" \
+            --type new-releases \
+            --data '${{ steps.check.outputs.new_releases }}' || echo "Discord notification failed (continuing)"
+      
       - name: Create GitHub Issue for New Release
         if: steps.check.outputs.has_new == 'true'
+        id: create_issues
         uses: actions/github-script@v7
+        continue-on-error: true  # Don't fail workflow if issue creation fails
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const newReleases = JSON.parse('${{ steps.check.outputs.new_releases }}');
             
+            console.log(`📝 Creating ${newReleases.length} issue(s)...`);
+            
+            let created = 0;
+            let failed = 0;
+            
             for (const release of newReleases) {
               const issueBody = `
-              ## 🎉 New Windows Release Detected
-              
-              **Build Information:**
-              - **Title:** ${release.title}
-              - **Build Number:** ${release.build_number}
-              - **Version:** ${release.version}
-              - **Architecture:** ${release.architecture}
-              - **Detection Date:** ${release.detected_date}
-              
-              **ISO Source:**
-              - ${release.iso_url}
-              
-              **Automated Actions:**
-              - [ ] Trigger Tiny11 Standard build
-              - [ ] Trigger Tiny11 Core build
-              - [ ] Trigger Nano11 build
-              - [ ] Test builds in VM
-              - [ ] Upload to SourceForge
-              
-              ---
-              *This issue was automatically created by the Version Matrix Builder*
-              `;
-              
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: `🆕 New Windows ${release.version} Release - Build ${release.build_number}`,
-                body: issueBody,
-                labels: ['automated', 'new-release', 'build-pending']
-              });
-            }
+                ## 🎉 New Windows Release Detected
+
+                **Build Information:**
+                - **Title:** ${release.title}
+                - **Build Number:** ${release.build_number}
+                - **Version:** ${release.version}
+                - **Architecture:** ${release.architecture}
+                - **Detection Date:** ${release.detected_date}
+
+                **ISO Source:**
+                - ${release.iso_url}
+
+                **Automated Actions:**
+                - [ ] Trigger Tiny11 Standard build
+                - [ ] Trigger Tiny11 Core build
+                - [ ] Trigger Nano11 build
+                - [ ] Test builds in VM
+                - [ ] Upload to SourceForge
+
+                ---
+                *This issue was automatically created by the Version Matrix Builder*
+                              `.trim();
+                              
+                              try {
+                                const issue = await github.rest.issues.create({
+                                  owner: context.repo.owner,
+                                  repo: context.repo.repo,
+                                  title: `🆕 New Windows ${release.version} Release - Build ${release.build_number}`,
+                                  body: issueBody,
+                                  labels: ['automated', 'new-release', 'build-pending']
+                                });
+                                
+                                console.log(`✅ Created issue #${issue.data.number}: ${release.title}`);
+                                created++;
+                              } catch (error) {
+                                console.error(`❌ Failed to create issue for ${release.title}: ${error.message}`);
+                                failed++;
+                                // Continue with other releases even if one fails
+                              }
+                            }
+                            
+                            console.log(`✅ Issue creation completed: ${created} created, ${failed} failed`);
+                      
+      - name: Summary of Issue Creation
+        if: steps.check.outputs.has_new == 'true'
+        run: |
+          echo "📊 Issue Creation Summary:"
+          echo "  Step outcome: ${{ steps.create_issues.outcome }}"
+          if [ "${{ steps.create_issues.outcome }}" = "success" ]; then
+            echo "  ✅ All issues created successfully"
+          else
+            echo "  ⚠️  Some issues may have failed (check logs above)"
+            echo "  ℹ️  This won't prevent builds from triggering"
+          fi
 
   trigger-builds:
     name: Trigger Automated Builds

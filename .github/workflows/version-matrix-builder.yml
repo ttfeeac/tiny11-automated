@@ -21,6 +21,12 @@ on:
         type: boolean
         default: false
 
+# Required permissions for the workflow
+permissions:
+  contents: write      # For committing tracking file
+  issues: write        # For creating GitHub issues
+  actions: write       # For triggering other workflows
+
 env:
   # Windows release monitoring endpoints
   UUPDUMP_API: 'https://api.uupdump.net'

@@ -93,8 +93,47 @@ class ReleaseDetector:
             response.raise_for_status()
             data = response.json()
             
+            # Debug: Log response structure
+            logger.debug(f"API Response keys: {data.keys() if isinstance(data, dict) else 'Not a dict'}")
+            
+            # Validate response structure
+            if not isinstance(data, dict):
+                logger.error(f"❌ Invalid response type: {type(data)}")
+                return []
+            
+            if 'response' not in data:
+                logger.error(f"❌ Missing 'response' key in data: {list(data.keys())}")
+                return []
+            
+            response_data = data.get('response', {})
+            if not isinstance(response_data, dict):
+                logger.error(f"❌ Invalid response data type: {type(response_data)}")
+                return []
+            
+            builds_data = response_data.get('builds', {})
+            
+            # UUP Dump API returns builds as a dict, not a list!
+            if not isinstance(builds_data, dict):
+                logger.error(f"❌ Unexpected builds data type: {type(builds_data)}")
+                return []
+            
+            logger.info(f"📦 Found {len(builds_data)} total builds from API")
+            
             releases = []
-            for build in data.get('response', {}).get('builds', [])[:30]:
+            processed = 0
+            
+            # Convert dict to list of builds and process first 30
+            # Sort by key (numeric) to get most recent first
+            sorted_keys = sorted(builds_data.keys(), key=lambda x: int(x) if x.isdigit() else 0)
+            
+            for key in sorted_keys[:30]:
+                build = builds_data[key]
+                
+                if not isinstance(build, dict):
+                    logger.warning(f"⚠️  Skipping non-dict build at key {key}: {type(build)}")
+                    continue
+                
+                processed += 1
                 build_id = build.get('uuid')
                 title = build.get('title', '')
                 arch = build.get('arch', '')
@@ -124,10 +163,22 @@ class ReleaseDetector:
                 releases.append(release)
                 logger.info(f"  ✨ Found: {title}")
             
+            logger.info(f"✅ Processed {processed} builds, found {len(releases)} new Windows 11 x64 releases")
             return releases
             
+        except requests.RequestException as e:
+            logger.error(f"❌ Network error during UUP Dump check: {e}")
+            return []
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Invalid JSON response from UUP Dump: {e}")
+            return []
+        except KeyError as e:
+            logger.error(f"❌ Missing expected key in API response: {e}")
+            return []
         except Exception as e:
-            logger.error(f"❌ UUP Dump check failed: {e}")
+            logger.error(f"❌ UUP Dump check failed: {type(e).__name__}: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
             return []
     
     def _check_microsoft_catalog(self) -> List[WindowsRelease]:
@@ -151,18 +202,40 @@ class ReleaseDetector:
     
     def _extract_version(self, title: str) -> str:
         """Extract Windows version from title"""
-        versions = ['26100', '25398', '24H2', '25H2', '23H2', '22H2']
+        # Try explicit version strings first (most reliable)
+        version_patterns = [
+            (r'version\s+(\d{2}H\d)', 'direct'),  # "version 24H2"
+            (r'\b(\d{2}H\d)\b', 'standalone'),    # "24H2" standalone
+        ]
         
-        for ver in versions:
-            if ver in title:
-                # Normalize to H2 format
-                if ver.isdigit():
-                    # Build number, try to map
-                    if int(ver) >= 26000:
-                        return '25H2'
-                    elif int(ver) >= 24000:
-                        return '24H2'
-                return ver
+        for pattern, ptype in version_patterns:
+            import re
+            match = re.search(pattern, title, re.IGNORECASE)
+            if match:
+                return match.group(1).upper()
+        
+        # Fallback: map build numbers to versions
+        build_match = re.search(r'\((\d{5})', title)
+        if build_match:
+            build_num = int(build_match.group(1))
+            
+            # Build number ranges for versions
+            if 26200 <= build_num < 27000:
+                return '25H2'
+            elif 26100 <= build_num < 26200:
+                return '24H2'
+            elif 26220 <= build_num < 27000:
+                return 'Insider-26H2'  # Future insider builds
+            elif 28000 <= build_num < 29000:
+                return 'Insider-28xxx'  # Canary builds
+            elif 22621 <= build_num < 23000:
+                return '22H2'
+            elif 22631 <= build_num < 23000:
+                return '23H2'
+        
+        # If still unknown, mark as Insider if title contains it
+        if 'insider' in title.lower() or 'preview' in title.lower():
+            return 'Insider-Preview'
         
         return 'Unknown'
     

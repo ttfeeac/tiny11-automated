@@ -349,12 +349,16 @@ jobs:
           echo "New releases detected: ${{ needs.detect-releases.outputs.has_new }}"
           echo "Builds triggered: $BUILDS_RESULT"
           
-          # Send Discord notification
-          if [ -n "$DISCORD_WEBHOOK" ]; then
-            python3 scripts/discord_notify.py \
-              --webhook "$DISCORD_WEBHOOK" \
-              --type builds-triggered \
-              --data "{\"builds_result\":\"$BUILDS_RESULT\",\"releases\":$NEW_RELEASES}" || echo "Discord notification failed"
+            # Calculate build count (releases * 3 variants * 2 editions = 6 builds per release)
+            RELEASES_COUNT=$(echo $NEW_RELEASES | python3 -c "import sys, json; print(len(json.load(sys.stdin)))")
+            BUILDS_COUNT=$((RELEASES_COUNT * 6))
+            
+            # Send Discord notification
+            if [ -n "$DISCORD_WEBHOOK" ]; then
+              python3 scripts/discord_notify.py \
+                --webhook "$DISCORD_WEBHOOK" \
+                --type builds-triggered \
+                --data "{\"builds_count\":$BUILDS_COUNT,\"releases\":$NEW_RELEASES}" || echo "Discord notification failed"
           else
             echo "⚠️ DISCORD_WEBHOOK_RELEASES not configured, skipping notification"
           fi

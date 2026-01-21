@@ -514,9 +514,12 @@ function Clean-InputMethods {
 function Remove-MiscellaneousFiles {
     Write-Log "Performing aggressive file deletions..."
     
-    # Speech TTS
-    Remove-Item -Path "$scratchDir\Windows\Speech\Engines\TTS" -Recurse -Force -ErrorAction SilentlyContinue
+    # Speech (Full removal for Nano)
+    Remove-Item -Path "$scratchDir\Windows\Speech" -Recurse -Force -ErrorAction SilentlyContinue
     
+    # Windows Error Reporting (WER)
+    Remove-Item -Path "$scratchDir\ProgramData\Microsoft\Windows\WER" -Recurse -Force -ErrorAction SilentlyContinue
+
     # Defender definitions
     Remove-Item -Path "$scratchDir\ProgramData\Microsoft\Windows Defender\Definition Updates" -Recurse -Force -ErrorAction SilentlyContinue
     
@@ -637,6 +640,13 @@ function Optimize-WinSxS {
             Write-Log "Copying: $($sourceDir.Name)"
             Copy-Item -Path $sourceDir.FullName -Destination $destDir -Recurse -Force
         }
+    }
+
+    # Safety Check: Ensure we actually copied something before wiping original WinSxS
+    $matchedCount = (Get-ChildItem -Path $destinationDirectory).Count
+    if ($matchedCount -lt 5) {
+        Write-Log "WinSxS optimization failed: Whitelist matched too few items ($matchedCount)." "ERROR"
+        throw "WinSxS optimization verification failed - Aborting to prevent broken image"
     }
 
     Write-Log "Replacing WinSxS with minimal version..."
